@@ -1,0 +1,17 @@
+[project]
+name = "message-extract"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Fernando Mazzoni", email = "fernando1mazzoni@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+message-extract = "message_extract:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
