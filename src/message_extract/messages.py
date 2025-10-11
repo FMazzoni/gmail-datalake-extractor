@@ -2,17 +2,15 @@
 
 import logging
 import time
-from functools import lru_cache
 from typing import Any, Literal
 
 from googleapiclient.errors import HttpError
 
-from message_extract.models import ListMessagesResponse, Message
+from message_extract.models import FetchConfig, ListMessagesResponse, Message
 
 log = logging.getLogger(__name__)
 
 
-@lru_cache(maxsize=10)
 def get_message_list(
     gmail_service: Any,
     search_query: str = "",
@@ -33,6 +31,7 @@ def get_message_list(
     Raises:
         HttpError: If handle_error is False and API call fails
     """
+
     try:
         log.info(f"Making API call for query: {search_query}")
         response = (
@@ -125,6 +124,7 @@ def fetch_messages_with_retry(
     metadata_headers: list[str] | None = None,
     max_retry_attempts: int = 3,
     initial_retry_delay: float = 1.0,
+    fetch_config: FetchConfig | None = None,
 ) -> list[Message]:
     """Fetch multiple messages efficiently using batch requests with automatic retry.
 
@@ -136,10 +136,19 @@ def fetch_messages_with_retry(
         metadata_headers: Headers to include when format is 'metadata'
         max_retry_attempts: Maximum number of retry attempts for failed batches
         initial_retry_delay: Base delay in seconds for exponential backoff
+        fetch_config: Optional FetchConfig to override individual parameters
 
     Returns:
         list[Message]: List of successfully fetched messages
     """
+    # Use fetch_config values if provided, otherwise use individual parameters
+    if fetch_config is not None:
+        messages_per_batch = fetch_config.messages_per_batch
+        response_format = fetch_config.response_format
+        metadata_headers = fetch_config.metadata_headers
+        max_retry_attempts = fetch_config.max_retry_attempts
+        initial_retry_delay = fetch_config.initial_retry_delay
+
     if metadata_headers is None:
         metadata_headers = ["From", "Subject", "Date", "To"]
 
@@ -182,6 +191,11 @@ def fetch_messages_with_retry(
                 log.error(
                     f"Max retries exceeded for batch {batch_number}. Giving up on {len(failed_message_ids)} messages."
                 )
+
+    log.info(
+        f"Successfully fetched {len(all_successfully_fetched_messages)} out of {len(message_ids_to_fetch)} messages"
+    )
+    return all_successfully_fetched_messages
 
     log.info(
         f"Successfully fetched {len(all_successfully_fetched_messages)} out of {len(message_ids_to_fetch)} messages"

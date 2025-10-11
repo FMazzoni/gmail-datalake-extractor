@@ -1,5 +1,7 @@
 """Pydantic data models for Gmail API responses."""
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -49,3 +51,21 @@ class ListMessagesResponse(BaseModel):
     messages: list[Message]
     nextPageToken: str | None = None
     resultSizeEstimate: int | None = None
+
+
+class FetchConfig(BaseModel):
+    """Configuration model for message fetching operations.
+
+    Args:
+        messages_per_batch: Number of messages per batch (recommended max 50)
+        response_format: Message format ('metadata', 'full', 'minimal', 'raw')
+        metadata_headers: Headers to include when format is 'metadata'
+        max_retry_attempts: Maximum number of retry attempts for failed batches
+        initial_retry_delay: Base delay in seconds for exponential backoff
+    """
+
+    messages_per_batch: int = 25
+    response_format: Literal["metadata", "full", "minimal", "raw"] = "full"
+    metadata_headers: list[str] | None = None
+    max_retry_attempts: int = 3
+    initial_retry_delay: float = 1.0
