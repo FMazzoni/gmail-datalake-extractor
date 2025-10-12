@@ -19,16 +19,18 @@ def get_credentials() -> Credentials:
         Exception: For other authentication errors
     """
     try:
-        if not config.token_path.exists():
-            raise FileNotFoundError(f"Token file not found at {config.token_path}")
+        if not config.gmail_api.token_path.exists():
+            raise FileNotFoundError(
+                f"Token file not found at {config.gmail_api.token_path}"
+            )
         creds = Credentials.from_authorized_user_file(
-            str(config.token_path), config.scopes
+            str(config.gmail_api.token_path), config.gmail_api.scopes
         )
         if not creds.token:
             raise ValueError("Token not found in credentials")
         if creds.expired:
             creds.refresh(Request())
-            with config.token_path.open("w") as token:
+            with config.gmail_api.token_path.open("w") as token:
                 _ = token.write(creds.to_json())
     except Exception as e:
         raise Exception(f"Error getting credentials: {e}")
