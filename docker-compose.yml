@@ -15,6 +15,10 @@ services:
       DB_MODE: ${DB_MODE:-postgres}
       DB_DUCKDB_FILE: ${DB_DUCKDB_FILE:-data/messages.duckdb}
 
+      # DuckLake configuration
+      DUCKLAKE_DATA_PATH: ${DUCKLAKE_DATA_PATH:-data/}
+      DUCKLAKE_METADATA_SCHEMA: ${DUCKLAKE_METADATA_SCHEMA:-messages}
+
       # PostgreSQL configuration (external server)
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
