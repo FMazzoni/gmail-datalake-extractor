@@ -67,6 +67,18 @@ class DatabaseConfig(BaseSettings):
         alias="postgres_db",
     )
 
+    # DuckLake settings
+    data_path: str = Field(
+        default="data/",
+        description="DuckLake data directory path",
+        alias="ducklake_data_path",
+    )
+    metadata_schema: str = Field(
+        default="messages",
+        description="DuckLake metadata schema name",
+        alias="ducklake_metadata_schema",
+    )
+
 
 class ServerConfig(BaseSettings):
     """Configuration for FastAPI server settings."""

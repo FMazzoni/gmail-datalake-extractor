@@ -82,6 +82,9 @@ def save_to_datalake(messages: List[Message]) -> None:
         log.info(f"PostgreSQL host: {config.database.host}:{config.database.port}")
         log.info(f"PostgreSQL database: {config.database.database}")
 
+    log.info(f"DuckLake data path: {config.database.data_path}")
+    log.info(f"DuckLake metadata schema: {config.database.metadata_schema}")
+
     # Load and template attach SQL file with Jinja2
     attach_sql_template = load_sql_file(sql_dir / "attach_ducklake.sql")
     template = Template(attach_sql_template)
@@ -93,6 +96,8 @@ def save_to_datalake(messages: List[Message]) -> None:
         POSTGRES_HOST=config.database.host,
         POSTGRES_PORT=config.database.port,
         POSTGRES_DB=config.database.database,
+        DUCKLAKE_DATA_PATH=config.database.data_path,
+        DUCKLAKE_METADATA_SCHEMA=config.database.metadata_schema,
     )
     # Load ingest SQL file
     ingest_sql = load_sql_file(sql_dir / "create_and_insert_messages.sql")
