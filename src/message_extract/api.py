@@ -8,7 +8,16 @@ from pydantic import BaseModel, Field
 from message_extract.extract.extract import get_messages, save_to_datalake
 from message_extract.models import FetchConfig
 
-log = logging.getLogger(__name__)
+# Configure basic logging
+logging.basicConfig(
+    level=logging.INFO,  # Changed from INFO to DEBUG
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+# Configure logging for this module
+logger = logging.getLogger("message_extract.api")
+
 
 app = FastAPI(
     title="Message Extract API",
@@ -50,17 +59,20 @@ async def extract_messages(request: ExtractRequest) -> ExtractResponse:
         HTTPException: If extraction fails or no messages found
     """
     try:
-        log.info(f"Extracting messages with query: {request.query}")
+        logger.info(
+            f"Starting message extraction - Query: '{request.query}', Max results: {request.max_results}"
+        )
 
-        # Extract messages
         messages = get_messages(
             search_query=request.query,
             max_results=request.max_results,
             fetch_config=request.fetch_config,
         )
-        log.info(f"Saving {len(messages)} messages to DuckLake")
+
+        logger.info(f"Retrieved {len(messages)} messages from Gmail API")
+
         save_to_datalake(messages)
-        log.info(f"Successfully extracted {len(messages)} messages")
+        logger.info(f"Successfully saved {len(messages)} messages to datalake")
 
         return ExtractResponse(
             success=True,
@@ -69,10 +81,10 @@ async def extract_messages(request: ExtractRequest) -> ExtractResponse:
         )
 
     except ValueError as e:
-        log.error(f"Value error during extraction: {e}")
+        logger.error(f"Value error during extraction: {e}")
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        log.error(f"Unexpected error during extraction: {e}")
+        logger.error(f"Unexpected error during extraction: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 

@@ -154,6 +154,9 @@ def fetch_messages_with_retry(
 
     all_successfully_fetched_messages = []
 
+    log.info(
+        f"Fetching {len(message_ids_to_fetch)} messages in batches of {messages_per_batch}"
+    )
     # Process messages in batches
     for batch_start_index in range(0, len(message_ids_to_fetch), messages_per_batch):
         current_batch_message_ids = message_ids_to_fetch[
@@ -191,11 +194,6 @@ def fetch_messages_with_retry(
                 log.error(
                     f"Max retries exceeded for batch {batch_number}. Giving up on {len(failed_message_ids)} messages."
                 )
-
-    log.info(
-        f"Successfully fetched {len(all_successfully_fetched_messages)} out of {len(message_ids_to_fetch)} messages"
-    )
-    return all_successfully_fetched_messages
 
     log.info(
         f"Successfully fetched {len(all_successfully_fetched_messages)} out of {len(message_ids_to_fetch)} messages"
