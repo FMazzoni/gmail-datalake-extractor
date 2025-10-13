@@ -20,7 +20,7 @@ logging.basicConfig(
 )
 
 # Configure logging for this module
-logger = logging.getLogger("message_extract.api")
+logger = logging.getLogger("gmail_datalake_extractor.api")
 
 # In-memory task status storage (in production, use Redis or database)
 task_status: Dict[str, Dict[str, Any]] = {}

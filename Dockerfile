@@ -13,15 +13,12 @@ RUN apt-get update && apt-get install -y \
 # Install uv for fast Python package management
 RUN pip install uv
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy dependency files and source code
+COPY pyproject.toml uv.lock README.md ./
+COPY src/ ./src/
 
 # Install dependencies
 RUN uv sync --frozen
-
-# Copy source code
-COPY src/ ./src/
-
 
 # Create data directory for DuckLake
 RUN mkdir -p /app/data
