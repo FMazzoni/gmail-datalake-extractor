@@ -67,5 +67,5 @@ class FetchConfig(BaseModel):
     messages_per_batch: int = 25
     response_format: Literal["metadata", "full", "minimal", "raw"] = "full"
     metadata_headers: list[str] | None = None
-    max_retry_attempts: int = 3
+    max_retry_attempts: int = 5
     initial_retry_delay: float = 1.0

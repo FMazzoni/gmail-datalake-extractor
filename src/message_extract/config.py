@@ -33,7 +33,7 @@ class DatabaseConfig(BaseSettings):
         extra="ignore",
         validate_assignment=True,
         use_enum_values=True,
-        # secrets_dir="/run/secrets",  # Enable Docker secrets support
+        secrets_dir="/run/secrets",  # Enable Docker secrets support
     )
 
     # Database mode: 'duckdb' for development, 'postgres' for production

@@ -1,6 +1,7 @@
 """FastAPI endpoints for message extraction."""
 
 import logging
+import traceback
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -80,12 +81,11 @@ async def extract_messages(request: ExtractRequest) -> ExtractResponse:
             query=request.query,
         )
 
-    except ValueError as e:
-        logger.error(f"Value error during extraction: {e}")
-        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Unexpected error during extraction: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Error during extraction: {e}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        detail = f"Error: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @app.get("/health")
