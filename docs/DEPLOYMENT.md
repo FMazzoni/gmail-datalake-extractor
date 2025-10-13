@@ -1,12 +1,12 @@
 # Message Extract Deployment Guide
 
-This guide explains how to deploy the message-extract service using Docker with an external PostgreSQL server and DuckLake secrets.
+This guide explains how to deploy the message-extract service using Docker with configurable backend support (DuckDB for development, PostgreSQL for production).
 
 ## Prerequisites
 
 - Docker and Docker Compose installed
-- External PostgreSQL server accessible from the deployment environment
 - Gmail API credentials (`token.json` file)
+- For production: External PostgreSQL server accessible from the deployment environment
 
 ## Setup Instructions
 
@@ -27,7 +27,15 @@ SERVER_PORT=8000
 SERVER_RELOAD=false
 SERVER_LOG_LEVEL=INFO
 
-# PostgreSQL Configuration (external server)
+# Database Configuration
+DB_MODE=duckdb                    # 'duckdb' for dev, 'postgres' for prod
+DB_DUCKDB_FILE=data/messages.duckdb
+
+# DuckLake Configuration
+DUCKLAKE_DATA_PATH=data/          # Custom data storage path
+DUCKLAKE_METADATA_SCHEMA=messages # Custom metadata schema name
+
+# PostgreSQL Configuration (for production)
 POSTGRES_HOST=your_postgres_server_host
 POSTGRES_PORT=5432
 POSTGRES_USER=your_postgres_username
@@ -65,33 +73,48 @@ docker-compose logs -f message-extract
 curl http://localhost:8000/health
 ```
 
-### 5. Automatic DuckLake Secret Setup
+### 5. Automatic DuckLake Setup
 
-The DuckLake secret is automatically created on first run. No manual intervention required.
+DuckLake is automatically configured on first run based on your configuration:
 
-## DuckLake Secret Management
+- **Development (DuckDB)**: Uses local DuckDB file for metadata catalog
+- **Production (PostgreSQL)**: Uses external PostgreSQL server for metadata catalog
 
-The service uses DuckLake secrets to securely store PostgreSQL connection information. The secret is automatically created on first run and contains:
+## DuckLake Configuration
 
-- PostgreSQL connection string
-- Data storage path
-- Metadata schema configuration
-- Encryption settings
+The service supports flexible DuckLake configuration:
 
-### Secret Structure
+### Development Mode (DuckDB)
 
-The DuckLake secret is created with the following configuration:
+```env
+DB_MODE=duckdb
+DB_DUCKDB_FILE=data/messages.duckdb
+DUCKLAKE_DATA_PATH=data/
+DUCKLAKE_METADATA_SCHEMA=messages
+```
 
-```sql
-CREATE PERSISTENT SECRET message_extract_ducklake (
-    TYPE ducklake,
-    METADATA_PATH 'postgres://user:password@host:port/database',
-    DATA_PATH '/app/data',
-    METADATA_PARAMETERS MAP {
-        'TYPE': 'postgres',
-        'SECRET': 'message_extract_ducklake_postgres'
-    }
-);
+### Production Mode (PostgreSQL)
+
+```env
+DB_MODE=postgres
+POSTGRES_HOST=your_postgres_server_host
+POSTGRES_PORT=5432
+POSTGRES_USER=your_postgres_username
+POSTGRES_DB=your_database_name
+DUCKLAKE_DATA_PATH=/var/lib/message-extract/data/
+DUCKLAKE_METADATA_SCHEMA=gmail_messages
+```
+
+### Custom Configuration
+
+You can customize data paths and schema names:
+
+```env
+# Custom data storage location
+DUCKLAKE_DATA_PATH=/custom/data/path/
+
+# Custom metadata schema
+DUCKLAKE_METADATA_SCHEMA=custom_schema_name
 ```
 
 ## Service Management
@@ -131,25 +154,29 @@ docker-compose up -d --build
 
 Once deployed, the service provides the following endpoints:
 
-- `POST /extract` - Extract messages from Gmail
+- `POST /extract` - Start background task to extract messages from Gmail
+- `GET /extract/{task_id}/status` - Check task status and progress
 - `GET /health` - Health check
 
-### Example API Call
+### Example API Usage
 
 ```bash
+# Start extraction task
 curl -X POST "http://localhost:8000/extract" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "from:example@gmail.com",
-    "max_results": 100,
+    "max_results": 1000,
     "fetch_config": {
       "messages_per_batch": 50,
-      "response_format": "metadata",
-      "metadata_headers": ["From", "Subject", "Date", "To"],
+      "response_format": "full",
       "max_retry_attempts": 3,
       "initial_retry_delay": 1.0
     }
   }'
+
+# Check task status (poll this endpoint)
+curl "http://localhost:8000/extract/abc123-def456-ghi789/status"
 ```
 
 ## Troubleshooting
@@ -161,9 +188,10 @@ curl -X POST "http://localhost:8000/extract" \
    - Check credentials in `.env` file
    - Ensure database exists
 
-2. **DuckLake Secret Creation Failed**
-   - Check PostgreSQL permissions
-   - Verify DuckLake extension is available
+2. **DuckLake Configuration Failed**
+   - Check database configuration in `.env` file
+   - Verify PostgreSQL connection (for production mode)
+   - Check DuckDB file permissions (for development mode)
    - Review logs for detailed error messages
 
 3. **Gmail API Authentication Failed**
@@ -193,6 +221,7 @@ curl http://localhost:8000/health
 - Regularly rotate Gmail API tokens
 - Secure PostgreSQL server with proper authentication and network access controls
 - Consider using Docker secrets for production deployments
+- Configure appropriate data paths and schema names for your environment
 
 ## Production Deployment
 
@@ -204,3 +233,5 @@ For production deployments:
 4. Set up automated backups for PostgreSQL and DuckLake data
 5. Configure proper resource limits and health checks
 6. Use a container orchestration platform (Kubernetes, Docker Swarm)
+7. Configure custom data paths and schema names for your environment
+8. Monitor background task processing and implement task persistence (Redis/database)
