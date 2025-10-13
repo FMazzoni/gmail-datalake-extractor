@@ -9,8 +9,8 @@ from uuid import uuid4
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from message_extract.extract.extract import get_messages, save_to_datalake
-from message_extract.models import FetchConfig
+from gmail_datalake_extractor.extract.extract import get_messages, save_to_datalake
+from gmail_datalake_extractor.models import FetchConfig
 
 # Configure basic logging
 logging.basicConfig(
@@ -27,8 +27,8 @@ task_status: Dict[str, Dict[str, Any]] = {}
 
 
 app = FastAPI(
-    title="Message Extract API",
-    description="Gmail message extraction service",
+    title="Gmail DataLake Extractor API",
+    description="Gmail message extraction service with DuckLake storage",
     version="1.0.0",
 )
 

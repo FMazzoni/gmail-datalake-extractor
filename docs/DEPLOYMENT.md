@@ -1,6 +1,6 @@
-# Message Extract Deployment Guide
+# Gmail DataLake Extractor Deployment Guide
 
-This guide explains how to deploy the message-extract service using Docker with configurable backend support (DuckDB for development, PostgreSQL for production).
+This guide explains how to deploy the gmail-datalake-extractor service using Docker with configurable backend support (DuckDB for development, PostgreSQL for production).
 
 ## Prerequisites
 

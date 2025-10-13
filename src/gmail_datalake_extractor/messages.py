@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from googleapiclient.errors import HttpError
 
-from message_extract.models import FetchConfig, ListMessagesResponse, Message
+from gmail_datalake_extractor.models import FetchConfig, ListMessagesResponse, Message
 
 log = logging.getLogger(__name__)
 

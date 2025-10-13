@@ -1,4 +1,4 @@
-# Message Extract API
+# Gmail DataLake Extractor API
 
 A FastAPI service for extracting Gmail messages using the Gmail API with background task processing and DuckLake storage.
 

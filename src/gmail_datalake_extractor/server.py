@@ -2,7 +2,7 @@
 
 import uvicorn
 
-from message_extract.config import config
+from gmail_datalake_extractor.config import config
 
 
 def main() -> None:

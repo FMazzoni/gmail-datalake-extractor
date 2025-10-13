@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  message-extract:
+  gmail-datalake-extractor:
     build: .
-    container_name: message-extract-api
+    container_name: gmail-datalake-extractor-api
     environment:
       # Server configuration
       SERVER_HOST: ${SERVER_HOST:-0.0.0.0}

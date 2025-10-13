@@ -6,10 +6,10 @@ import duckdb
 import pyarrow as pa
 from jinja2 import Template
 
-from message_extract.auth import get_service
-from message_extract.config import config
-from message_extract.messages import fetch_messages_with_retry, get_message_list
-from message_extract.models import FetchConfig, Message
+from gmail_datalake_extractor.auth import get_service
+from gmail_datalake_extractor.config import config
+from gmail_datalake_extractor.messages import fetch_messages_with_retry, get_message_list
+from gmail_datalake_extractor.models import FetchConfig, Message
 
 log = logging.getLogger(__name__)
 

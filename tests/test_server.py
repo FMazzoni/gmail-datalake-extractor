@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from message_extract.api import app
+from gmail_datalake_extractor.api import app
 
 client = TestClient(app)
 
@@ -17,7 +17,7 @@ def test_extract():
         "/extract",
         json={
             "query": "",
-            "max_results": 500,
+            "max_results": 10,
             "fetch_config": {
                 "messages_per_batch": 25,
                 "response_format": "full",
@@ -25,7 +25,10 @@ def test_extract():
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"success": True, "message_count": 500, "query": ""}
+    response_data = response.json()
+    assert "task_id" in response_data
+    assert response_data["status"] == "started"
+    assert response_data["message"] == "Extraction task started successfully"
 
 
 if __name__ == "__main__":

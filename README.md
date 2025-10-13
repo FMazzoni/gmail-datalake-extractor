@@ -1,4 +1,4 @@
-# Message Extract
+# Gmail DataLake Extractor
 
 A FastAPI service for extracting Gmail messages and storing them in DuckLake with configurable backend support (DuckDB for development, PostgreSQL for production).
 
@@ -153,8 +153,8 @@ GMAIL_API_SCOPES=https://www.googleapis.com/auth/gmail.readonly
 ## Project Structure
 
 ```
-message-extract/
-├── src/message_extract/          # Main application code
+gmail-datalake-extractor/
+├── src/gmail_datalake_extractor/ # Main application code
 │   ├── api.py                   # FastAPI endpoints with background tasks
 │   ├── auth.py                  # Gmail API authentication
 │   ├── config.py                # Configuration management
