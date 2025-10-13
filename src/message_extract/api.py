@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from message_extract.extract.extract import get_messages
+from message_extract.extract.extract import get_messages, save_to_datalake
 from message_extract.models import FetchConfig
 
 log = logging.getLogger(__name__)
@@ -58,7 +58,8 @@ async def extract_messages(request: ExtractRequest) -> ExtractResponse:
             max_results=request.max_results,
             fetch_config=request.fetch_config,
         )
-
+        log.info(f"Saving {len(messages)} messages to DuckLake")
+        save_to_datalake(messages)
         log.info(f"Successfully extracted {len(messages)} messages")
 
         return ExtractResponse(
