@@ -4,11 +4,13 @@ from typing import List
 
 import duckdb
 import pyarrow as pa
-from jinja2 import Template
 
 from gmail_datalake_extractor.auth import get_service
 from gmail_datalake_extractor.config import config
-from gmail_datalake_extractor.messages import fetch_messages_with_retry, get_message_list
+from gmail_datalake_extractor.messages import (
+    fetch_messages_with_retry,
+    get_message_list,
+)
 from gmail_datalake_extractor.models import FetchConfig, Message
 
 log = logging.getLogger(__name__)
@@ -74,39 +76,24 @@ def save_to_datalake(messages: List[Message]) -> None:
     message_data = [msg.model_dump() for msg in messages]
     message_table = pa.Table.from_pylist(message_data)
 
-    # Load and template SQL files
+    # Load SQL files
     sql_dir = Path(__file__).parent.parent / "sql"
-    if config.database.mode == "duckdb":
-        log.info(f"DuckDB file: {config.database.duckdb_file}")
-    else:
-        log.info(f"PostgreSQL host: {config.database.host}:{config.database.port}")
-        log.info(f"PostgreSQL database: {config.database.database}")
 
-    log.info(f"DuckLake data path: {config.database.data_path}")
-    log.info(f"DuckLake metadata schema: {config.database.metadata_schema}")
-
-    # Load and template attach SQL file with Jinja2
-    attach_sql_template = load_sql_file(sql_dir / "attach_ducklake.sql")
-    template = Template(attach_sql_template)
-    attach_sql = template.render(
-        db_mode=config.database.mode,
-        DB_DUCKDB_FILE=config.database.duckdb_file,
-        POSTGRES_USER=config.database.user,
-        POSTGRES_PASSWORD=config.database.password,
-        POSTGRES_HOST=config.database.host,
-        POSTGRES_PORT=config.database.port,
-        POSTGRES_DB=config.database.database,
-        DUCKLAKE_DATA_PATH=config.database.data_path,
-        DUCKLAKE_METADATA_SCHEMA=config.database.metadata_schema,
-    )
+    # Load DuckLake setup SQL from config path
+    ducklake_setup_sql = load_sql_file(config.database.ducklake_setup_path)
+    # Load attach SQL file (now simplified)
+    attach_sql = load_sql_file(sql_dir / "attach_ducklake.sql")
     # Load ingest SQL file
     ingest_sql = load_sql_file(sql_dir / "create_and_insert_messages.sql")
 
     log.info("Running SQL files")
-    log.info(f"Database mode: {config.database.mode}")
 
     # Execute database operations
     with duckdb.connect() as con:
+        con.install_extension("httpfs")
+        # Initialize DuckLake setup first
+        con.sql(ducklake_setup_sql)
+        # Then attach and insert data
         con.sql(attach_sql)
         con.register("message_table", message_table)
         con.sql(ingest_sql)

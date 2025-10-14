@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,50 +33,11 @@ class DatabaseConfig(BaseSettings):
         extra="ignore",
         validate_assignment=True,
         use_enum_values=True,
-        secrets_dir="/run/secrets",  # Enable Docker secrets support
     )
 
-    # Database mode: 'duckdb' for development, 'postgres' for production
-    mode: Literal["duckdb", "postgres"] = Field(
-        default="duckdb", description="Database mode", alias="db_mode"
-    )
-
-    # DuckDB file path (for development)
-    duckdb_file: str = Field(
-        default="data/messages.duckdb",
-        description="DuckDB file path",
-        alias="db_duckdb_file",
-    )
-
-    # PostgreSQL settings (for production)
-    host: str = Field(default="", description="PostgreSQL host", alias="postgres_host")
-    port: str = Field(
-        default="5432", description="PostgreSQL port", alias="postgres_port"
-    )
-    user: str = Field(
-        default="", description="PostgreSQL username", alias="postgres_user"
-    )
-    password: str = Field(
-        default="",
-        description="PostgreSQL password",
-        validation_alias=AliasChoices("postgres_password"),
-    )
-    database: str = Field(
-        default="",
-        description="PostgreSQL database name",
-        alias="postgres_db",
-    )
-
-    # DuckLake settings
-    data_path: str = Field(
-        default="data/",
-        description="DuckLake data directory path",
-        alias="ducklake_data_path",
-    )
-    metadata_schema: str = Field(
-        default="messages",
-        description="DuckLake metadata schema name",
-        alias="ducklake_metadata_schema",
+    ducklake_setup_path: Path = Field(
+        description="Path to DuckLake setup SQL file",
+        alias="ducklake_setup_path",
     )
 
 
