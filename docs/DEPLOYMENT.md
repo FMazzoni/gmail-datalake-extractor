@@ -1,12 +1,13 @@
 # Gmail DataLake Extractor Deployment Guide
 
-This guide explains how to deploy the gmail-datalake-extractor service using Docker with configurable backend support (DuckDB for development, PostgreSQL for production).
+This guide explains how to deploy the message-extract service using Docker with DuckLake integration and configurable storage backends.
 
 ## Prerequisites
 
 - Docker and Docker Compose installed
 - Gmail API credentials (`token.json` file)
-- For production: External PostgreSQL server accessible from the deployment environment
+- DuckLake setup configuration files
+- For production: External PostgreSQL server and S3-compatible storage (optional)
 
 ## Setup Instructions
 
@@ -27,24 +28,12 @@ SERVER_PORT=8000
 SERVER_RELOAD=false
 SERVER_LOG_LEVEL=INFO
 
-# Database Configuration
-DB_MODE=duckdb                    # 'duckdb' for dev, 'postgres' for prod
-DB_DUCKDB_FILE=data/messages.duckdb
-
 # DuckLake Configuration
-DUCKLAKE_DATA_PATH=data/          # Custom data storage path
-DUCKLAKE_METADATA_SCHEMA=messages # Custom metadata schema name
-
-# PostgreSQL Configuration (for production)
-POSTGRES_HOST=your_postgres_server_host
-POSTGRES_PORT=5432
-POSTGRES_USER=your_postgres_username
-POSTGRES_DB=your_database_name
-# Note: POSTGRES_PASSWORD is read from Docker secret /run/secrets/postgres_password
+DUCKLAKE_SETUP_PATH=/app/data/ducklake_setup
 
 # Gmail API Configuration
-GMAIL_API_TOKEN_PATH=/run/secrets/gmail_token
-GMAIL_API_SCOPES=https://www.googleapis.com/auth/gmail.readonly
+GMAIL_API_TOKEN_PATH=/app/data/token.json
+GMAIL_API_SCOPES='["https://www.googleapis.com/auth/gmail.readonly"]'
 ```
 
 ### 2. Prepare Secrets Directory
@@ -52,7 +41,8 @@ GMAIL_API_SCOPES=https://www.googleapis.com/auth/gmail.readonly
 Ensure your `secrets/` directory contains:
 
 - `token.json` - Gmail API authentication token
-- `db_password.txt` - Database password
+- `ducklake_setup.sql` - DuckLake configuration for production
+- `ducklake_setup.dev.sql` - DuckLake configuration for development
 
 ### 3. Create Data Directory
 
@@ -70,51 +60,48 @@ docker-compose up -d
 docker-compose logs -f message-extract
 
 # Check service health
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 ### 5. Automatic DuckLake Setup
 
-DuckLake is automatically configured on first run based on your configuration:
+DuckLake is automatically configured on first run using the setup SQL files:
 
-- **Development (DuckDB)**: Uses local DuckDB file for metadata catalog
-- **Production (PostgreSQL)**: Uses external PostgreSQL server for metadata catalog
+- **Development**: Uses `ducklake_setup.dev.sql` with local DuckDB for metadata catalog
+- **Production**: Uses `ducklake_setup.sql` with PostgreSQL for metadata catalog and S3 storage
 
 ## DuckLake Configuration
 
-The service supports flexible DuckLake configuration:
+The service uses SQL setup files to configure DuckLake:
 
-### Development Mode (DuckDB)
+### Development Configuration (`ducklake_setup.dev.sql`)
 
-```env
-DB_MODE=duckdb
-DB_DUCKDB_FILE=data/messages.duckdb
-DUCKLAKE_DATA_PATH=data/
-DUCKLAKE_METADATA_SCHEMA=messages
+```sql
+CREATE secret my_ducklake (
+    TYPE ducklake,
+    metadata_path './data/messages.duckdb',
+    data_path './data/',
+    metadata_schema 'messages',
+    encrypted FALSE
+);
 ```
 
-### Production Mode (PostgreSQL)
+### Production Configuration (`ducklake_setup.sql`)
 
-```env
-DB_MODE=postgres
-POSTGRES_HOST=your_postgres_server_host
-POSTGRES_PORT=5432
-POSTGRES_USER=your_postgres_username
-POSTGRES_DB=your_database_name
-DUCKLAKE_DATA_PATH=/var/lib/message-extract/data/
-DUCKLAKE_METADATA_SCHEMA=gmail_messages
-```
-
-### Custom Configuration
-
-You can customize data paths and schema names:
-
-```env
-# Custom data storage location
-DUCKLAKE_DATA_PATH=/custom/data/path/
-
-# Custom metadata schema
-DUCKLAKE_METADATA_SCHEMA=custom_schema_name
+```sql
+SET s3_region = 'your-s3-region';
+SET s3_url_style = 'path';
+SET s3_endpoint = 'your-s3-endpoint:port';
+SET s3_use_ssl = true;
+SET s3_access_key_id = 'your-s3-access-key';
+SET s3_secret_access_key = 'your-s3-secret-key';
+CREATE secret my_ducklake (
+    TYPE ducklake,
+    metadata_path 'postgres: user=your-postgres-user password=your-postgres-password host=your-postgres-host port=your-postgres-port dbname=your-postgres-db',
+    data_path 's3://your-bucket-name',
+    metadata_schema 'your-schema-name',
+    encrypted true
+);
 ```
 
 ## Service Management
@@ -162,7 +149,7 @@ Once deployed, the service provides the following endpoints:
 
 ```bash
 # Start extraction task
-curl -X POST "http://localhost:8000/extract" \
+curl -X POST "http://localhost:8080/extract" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "from:example@gmail.com",
@@ -176,27 +163,29 @@ curl -X POST "http://localhost:8000/extract" \
   }'
 
 # Check task status (poll this endpoint)
-curl "http://localhost:8000/extract/abc123-def456-ghi789/status"
+curl "http://localhost:8080/extract/abc123-def456-ghi789/status"
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **PostgreSQL Connection Failed**
-   - Verify PostgreSQL server is accessible
-   - Check credentials in `.env` file
-   - Ensure database exists
-
-2. **DuckLake Configuration Failed**
-   - Check database configuration in `.env` file
-   - Verify PostgreSQL connection (for production mode)
+1. **DuckLake Configuration Failed**
+   - Verify DuckLake setup SQL files are present in `secrets/` directory
+   - Check PostgreSQL connection (for production mode)
+   - Verify S3 credentials and endpoint (for production mode)
    - Check DuckDB file permissions (for development mode)
    - Review logs for detailed error messages
 
-3. **Gmail API Authentication Failed**
+2. **Gmail API Authentication Failed**
    - Ensure `token.json` is valid and not expired
    - Check Gmail API scopes configuration
+   - Verify token has `gmail.readonly` scope
+
+3. **Container Startup Issues**
+   - Check Docker secrets are properly mounted
+   - Verify environment variables are set correctly
+   - Ensure data directory has proper permissions
 
 ### Logs
 
@@ -211,17 +200,18 @@ docker-compose logs message-extract
 Verify service is running:
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 ## Security Considerations
 
-- Store sensitive credentials in environment variables or secret management systems
+- Store sensitive credentials in Docker secrets or secret management systems
 - Use encrypted DuckLake storage for production deployments
 - Regularly rotate Gmail API tokens
 - Secure PostgreSQL server with proper authentication and network access controls
-- Consider using Docker secrets for production deployments
+- Use S3-compatible storage with proper IAM policies
 - Configure appropriate data paths and schema names for your environment
+- Keep DuckLake setup SQL files secure and version-controlled
 
 ## Production Deployment
 
@@ -230,8 +220,10 @@ For production deployments:
 1. Use a reverse proxy (nginx, traefik) for SSL termination
 2. Implement proper logging and monitoring
 3. Use Docker secrets or external secret management
-4. Set up automated backups for PostgreSQL and DuckLake data
+4. Set up automated backups for PostgreSQL and S3 storage
 5. Configure proper resource limits and health checks
 6. Use a container orchestration platform (Kubernetes, Docker Swarm)
-7. Configure custom data paths and schema names for your environment
+7. Configure DuckLake with encrypted storage and proper access controls
 8. Monitor background task processing and implement task persistence (Redis/database)
+9. Set up proper S3 bucket policies and IAM roles
+10. Configure PostgreSQL with connection pooling and proper security

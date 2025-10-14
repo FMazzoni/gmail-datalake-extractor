@@ -2,6 +2,15 @@
 
 A FastAPI service for extracting Gmail messages using the Gmail API with background task processing and DuckLake storage.
 
+## Overview
+
+The API provides asynchronous message extraction from Gmail with:
+
+- **Background Task Processing**: Non-blocking operations with progress tracking
+- **DuckLake Integration**: Modern data lake storage with ACID transactions
+- **Configurable Fetching**: Flexible message retrieval with retry logic
+- **Type Safety**: Full Pydantic models for request/response validation
+
 ## Installation
 
 Install dependencies:
@@ -12,13 +21,21 @@ uv sync
 
 ## Running the API
 
-### Using uv run
+### Local Development
 
 ```bash
 uv run api-server
 ```
 
 This will start the FastAPI server on `http://localhost:8000` with auto-reload enabled.
+
+### Docker Deployment
+
+```bash
+docker-compose up -d
+```
+
+The service will be available on `http://localhost:8080`.
 
 ## API Endpoints
 
@@ -76,16 +93,17 @@ Get the status of an extraction task.
 
 **Task Status States:**
 
-- `started`: Task initialized
+- `started`: Task initialized and queued
 - `running`: In progress (progress 10-90%)
 - `completed`: Finished successfully (progress 100%)
-- `failed`: Error occurred
+- `failed`: Error occurred during processing
 
 **Progress Tracking:**
 
+- **0%**: Task queued and initialized
 - **10%**: Started fetching from Gmail API
-- **50%**: Messages retrieved, saving to datalake
-- **100%**: Completed successfully
+- **50%**: Messages retrieved, saving to DuckLake
+- **100%**: Completed successfully with message count
 
 ### GET /health
 
@@ -99,38 +117,47 @@ Health check endpoint.
 }
 ```
 
-## Configuration
+## Data Models
 
 ### ExtractRequest
 
 Request model for message extraction:
 
-- `query`: Gmail search query string (default: "")
-- `max_results`: Maximum number of messages to return (default: 500)
-- `fetch_config`: Configuration for message fetching
+```python
+class ExtractRequest(BaseModel):
+    query: str = ""                    # Gmail search query string
+    max_results: int = 500             # Maximum number of messages to return
+    fetch_config: FetchConfig          # Configuration for message fetching
+```
 
 ### FetchConfig
 
 Controls message fetching behavior:
 
-- `messages_per_batch`: Number of messages per batch (default: 25, max recommended: 50)
-- `response_format`: Message format - "metadata", "full", "minimal", "raw" (default: "full")
-- `metadata_headers`: Headers to include when format is "metadata" (default: null)
-- `max_retry_attempts`: Maximum retry attempts (default: 5)
-- `initial_retry_delay`: Base delay for exponential backoff (default: 1.0)
+```python
+class FetchConfig(BaseModel):
+    messages_per_batch: int = 25       # Messages per batch (max recommended: 50)
+    response_format: Literal["metadata", "full", "minimal", "raw"] = "full"
+    metadata_headers: list[str] | None = None  # Headers for metadata format
+    max_retry_attempts: int = 5        # Maximum retry attempts
+    initial_retry_delay: float = 1.0   # Base delay for exponential backoff
+```
 
 ### TaskStatusResponse
 
 Response model for task status:
 
-- `task_id`: Unique task identifier
-- `status`: Current task status
-- `progress`: Progress percentage (0-100)
-- `message`: Current status message
-- `message_count`: Number of messages processed (when completed)
-- `error`: Error message (if failed)
-- `started_at`: Task start timestamp
-- `completed_at`: Task completion timestamp (when finished)
+```python
+class TaskStatusResponse(BaseModel):
+    task_id: str                        # Unique task identifier
+    status: str                         # Current task status
+    progress: int                       # Progress percentage (0-100)
+    message: str                        # Current status message
+    message_count: int | None = None    # Number of messages processed (when completed)
+    error: str | None = None            # Error message (if failed)
+    started_at: datetime                # Task start timestamp
+    completed_at: datetime | None = None # Task completion timestamp (when finished)
+```
 
 ## Usage Examples
 
@@ -184,10 +211,21 @@ The API provides comprehensive error handling with full stack traces:
 
 ## Authentication
 
-Make sure you have Gmail API credentials set up in the `secrets/` directory before running the API:
+Make sure you have Gmail API credentials set up before running the API:
+
+### Required Files
 
 - `secrets/token.json`: Gmail API authentication token
-- Gmail API scopes: `https://www.googleapis.com/auth/gmail.readonly`
+- `secrets/ducklake_setup.dev.sql`: DuckLake configuration for development
+- `secrets/ducklake_setup.sql`: DuckLake configuration for production
+
+### Gmail API Setup
+
+1. Create a Google Cloud Project
+2. Enable the Gmail API
+3. Create OAuth 2.0 credentials
+4. Generate a token with `https://www.googleapis.com/auth/gmail.readonly` scope
+5. Save the token as `secrets/token.json`
 
 ## Background Task Processing
 
@@ -197,6 +235,16 @@ The API uses FastAPI's background tasks to handle long-running operations:
 - **Progress tracking**: Real-time progress updates via status endpoint
 - **Error handling**: Comprehensive error reporting with stack traces
 - **Scalable**: Handles large message batches without timeouts
+- **DuckLake Integration**: Automatic data lake storage with ACID transactions
+
+## DuckLake Storage
+
+Messages are automatically stored in DuckLake with:
+
+- **Parquet Format**: Efficient columnar storage for analytics
+- **ACID Transactions**: Consistent data writes
+- **Metadata Catalog**: DuckDB (dev) or PostgreSQL (prod) for metadata
+- **Configurable Storage**: Local filesystem or S3 backend
 
 ## Interactive API Documentation
 

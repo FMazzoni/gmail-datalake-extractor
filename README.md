@@ -6,10 +6,11 @@ A FastAPI service for extracting Gmail messages and storing them in DuckLake wit
 
 - **Gmail API Integration**: Extract messages with batch processing and retry logic
 - **Background Task Processing**: Non-blocking API with progress tracking
-- **Flexible Storage**: DuckLake with DuckDB (dev) or PostgreSQL (prod) backend
-- **Configurable Paths**: Customizable data paths and metadata schemas
+- **DuckLake Storage**: Modern data lake storage with DuckDB (dev) or PostgreSQL (prod) metadata catalog
+- **Configurable Storage**: Customizable data paths and metadata schemas
 - **Docker Support**: Containerized deployment with secret management
 - **REST API**: FastAPI-based service with comprehensive error handling
+- **Type Safety**: Full type hints and Pydantic models for robust data validation
 
 ## Quick Start
 
@@ -27,6 +28,7 @@ A FastAPI service for extracting Gmail messages and storing them in DuckLake wit
    ```bash
    # Ensure secrets/ directory contains:
    # - token.json (Gmail API token)
+   # - ducklake_setup.dev.sql (DuckLake configuration for development)
    ```
 
 3. **Install Dependencies**
@@ -41,7 +43,7 @@ A FastAPI service for extracting Gmail messages and storing them in DuckLake wit
    uv run api-server
    ```
 
-   Server will start on `http://localhost:8000` with DuckDB backend.
+   Server will start on `http://localhost:8000` with DuckDB backend and DuckLake storage.
 
 ### Docker Deployment
 
@@ -49,7 +51,7 @@ A FastAPI service for extracting Gmail messages and storing them in DuckLake wit
 
    ```bash
    cp env.template .env
-   # Edit .env with your PostgreSQL and Gmail API settings
+   # Edit .env with your Gmail API settings
    ```
 
 2. **Prepare Secrets**
@@ -57,7 +59,7 @@ A FastAPI service for extracting Gmail messages and storing them in DuckLake wit
    ```bash
    # Ensure secrets/ directory contains:
    # - token.json (Gmail API token)
-   # - db_password.txt (PostgreSQL password)
+   # - ducklake_setup.sql (DuckLake configuration for production)
    ```
 
 3. **Deploy**
@@ -69,7 +71,7 @@ A FastAPI service for extracting Gmail messages and storing them in DuckLake wit
 4. **Verify**
 
    ```bash
-   curl http://localhost:8000/health
+   curl http://localhost:8080/health
    ```
 
 ## API Usage
@@ -101,6 +103,8 @@ curl -X POST "http://localhost:8000/extract" \
 }
 ```
 
+> **Note**: The API returns immediately with a task ID. Use the status endpoint to track progress.
+
 ### Check Task Status
 
 ```bash
@@ -131,56 +135,66 @@ SERVER_PORT=8000
 SERVER_RELOAD=false
 SERVER_LOG_LEVEL=INFO
 
-# Database Configuration
-DB_MODE=duckdb                    # 'duckdb' for dev, 'postgres' for prod
-DB_DUCKDB_FILE=data/messages.duckdb
-
 # DuckLake Configuration
-DUCKLAKE_DATA_PATH=data/          # Custom data storage path
-DUCKLAKE_METADATA_SCHEMA=messages # Custom metadata schema name
-
-# PostgreSQL Configuration (for production)
-POSTGRES_HOST=your_postgres_server_host
-POSTGRES_PORT=5432
-POSTGRES_USER=your_postgres_username
-POSTGRES_DB=your_database_name
+DUCKLAKE_SETUP_PATH=/path/to/your/ducklake_setup.sql
 
 # Gmail API Configuration
-GMAIL_API_TOKEN_PATH=/run/secrets/gmail_token
-GMAIL_API_SCOPES=https://www.googleapis.com/auth/gmail.readonly
+GMAIL_API_TOKEN_PATH=/path/to/your/gmail/token.json
+GMAIL_API_SCOPES='["https://www.googleapis.com/auth/gmail.readonly"]'
 ```
+
+### DuckLake Setup
+
+DuckLake configuration is managed through SQL setup files:
+
+- **Development**: `secrets/ducklake_setup.dev.sql` - Uses local DuckDB for metadata catalog
+- **Production**: `secrets/ducklake_setup.sql` - Uses PostgreSQL for metadata catalog with S3 storage
+
+The setup files define:
+
+- Metadata catalog location (DuckDB file or PostgreSQL connection)
+- Data storage path (local filesystem or S3)
+- Schema configuration
+- Encryption settings
 
 ## Project Structure
 
-```
-gmail-datalake-extractor/
+```text
+message-extract/
 ├── src/gmail_datalake_extractor/ # Main application code
 │   ├── api.py                   # FastAPI endpoints with background tasks
 │   ├── auth.py                  # Gmail API authentication
-│   ├── config.py                # Configuration management
+│   ├── config.py                # Configuration management with Pydantic
 │   ├── extract/                 # Message extraction logic
-│   │   └── extract.py
+│   │   └── extract.py           # Core extraction and DuckLake integration
 │   ├── messages.py              # Gmail API message operations
-│   ├── models.py                # Pydantic data models
-│   ├── server.py                # Server startup
+│   ├── models.py                # Pydantic data models for API
+│   ├── server.py                # Server startup and configuration
 │   └── sql/                     # SQL templates
-│       ├── attach_ducklake.sql
-│       └── create_and_insert_messages.sql
+│       └── attach_ducklake.sql  # DuckLake attachment script
 ├── docs/                        # Documentation
-│   ├── DEPLOYMENT.md
-│   └── API_README.md
-├── secrets/                     # Sensitive credentials
+│   ├── DEPLOYMENT.md            # Docker deployment guide
+│   └── API_README.md            # API reference
+├── secrets/                     # Sensitive credentials and configs
+│   ├── token.json               # Gmail API token
+│   ├── ducklake_setup.sql       # Production DuckLake config
+│   └── ducklake_setup.dev.sql   # Development DuckLake config
 ├── data/                        # DuckLake data storage
+│   ├── main/messages/           # Parquet files
+│   └── messages.duckdb          # DuckDB metadata catalog (dev)
+├── notebooks/                   # Jupyter notebooks for exploration
 ├── tests/                       # Test files
 ├── docker-compose.yml           # Docker orchestration
 ├── Dockerfile                   # Container definition
+├── pyproject.toml               # Python project configuration
 └── env.template                 # Environment configuration template
 ```
 
 ## Documentation
 
-- **[API Documentation](docs/API_README.md)** - Complete API reference
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment instructions
+- **[API Documentation](docs/API_README.md)** - Complete API reference with examples
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Docker deployment and configuration
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - System design and DuckLake integration
 
 ## Interactive API Documentation
 
@@ -188,3 +202,14 @@ Once the server is running, visit:
 
 - **Swagger UI**: <http://localhost:8000/docs>
 - **ReDoc**: <http://localhost:8000/redoc>
+
+## Technology Stack
+
+- **FastAPI**: Modern Python web framework with automatic API documentation
+- **DuckLake**: Modern data lake storage with ACID transactions
+- **DuckDB**: High-performance analytical database for metadata catalog
+- **PostgreSQL**: Production metadata catalog backend
+- **Pydantic**: Data validation and settings management
+- **Gmail API**: Google's RESTful API for Gmail access
+- **Docker**: Containerized deployment
+- **uv**: Fast Python package manager
