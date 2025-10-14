@@ -12,33 +12,19 @@ services:
       SERVER_LOG_LEVEL: ${SERVER_LOG_LEVEL:-INFO}
 
       # Database configuration
-      DB_MODE: ${DB_MODE:-postgres}
-      DB_DUCKDB_FILE: ${DB_DUCKDB_FILE:-data/messages.duckdb}
-
-      # DuckLake configuration
-      DUCKLAKE_DATA_PATH: ${DUCKLAKE_DATA_PATH:-data/}
-      DUCKLAKE_METADATA_SCHEMA: ${DUCKLAKE_METADATA_SCHEMA:-messages}
-
-      # PostgreSQL configuration (external server)
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_DB: ${POSTGRES_DB}
+      DUCKLAKE_SETUP_PATH: ${DUCKLAKE_SETUP_PATH:-/app/data/ducklake_setup}
 
       # Gmail API configuration
-      GMAIL_API_TOKEN_PATH: /run/secrets/gmail_token
+      GMAIL_API_TOKEN_PATH: ${GMAIL_API_TOKEN_PATH:-/app/data/token.json}
       GMAIL_API_SCOPES: ${GMAIL_API_SCOPES:-https://www.googleapis.com/auth/gmail.readonly}
     secrets:
-      - postgres_password
-      - gmail_token
+      - ducklake_setup
     volumes:
-      - ./data:/app/data
+      - ./secrets/token.json:/app/data/token.json
     ports:
-      - "${SERVER_PORT:-8000}:8000"
+      - "8080:${SERVER_PORT:-8000}"
     restart: unless-stopped
 
 secrets:
-  postgres_password:
-    file: ./secrets/db_password.txt
-  gmail_token:
-    file: ./secrets/token.json
+  ducklake_setup:
+    file: ./secrets/ducklake_setup.sql
