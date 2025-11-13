@@ -3,7 +3,6 @@
 import logging
 import traceback
 from datetime import datetime
-from typing import Any, Dict
 from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
@@ -11,19 +10,22 @@ from pydantic import BaseModel, Field
 
 from gmail_datalake_extractor.extract.extract import get_messages, save_to_datalake
 from gmail_datalake_extractor.models import FetchConfig
+from gmail_datalake_extractor.task_storage import (
+    cleanup_old_tasks,
+    create_task,
+    get_task,
+    update_task,
+)
 
 # Configure basic logging
 logging.basicConfig(
-    level=logging.INFO,  # Changed from INFO to DEBUG
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 # Configure logging for this module
 logger = logging.getLogger("gmail_datalake_extractor.api")
-
-# In-memory task status storage (in production, use Redis or database)
-task_status: Dict[str, Dict[str, Any]] = {}
 
 
 app = FastAPI(
@@ -66,6 +68,7 @@ class TaskStatusResponse(BaseModel):
     task_id: str
     status: str
     progress: int
+    message: str | None = None
     message_count: int | None = None
     error: str | None = None
     started_at: datetime
@@ -76,12 +79,11 @@ async def run_extraction_task(task_id: str, request: ExtractRequest) -> None:
     """Run the extraction task in the background."""
     try:
         logger.info(f"Starting extraction task {task_id}")
-        task_status[task_id].update(
-            {
-                "status": "running",
-                "progress": 10,
-                "message": "Fetching messages from Gmail API...",
-            }
+        update_task(
+            task_id=task_id,
+            status="running",
+            progress=10,
+            message="Fetching messages from Gmail API...",
         )
 
         # Fetch messages
@@ -91,25 +93,23 @@ async def run_extraction_task(task_id: str, request: ExtractRequest) -> None:
             fetch_config=request.fetch_config,
         )
 
-        task_status[task_id].update(
-            {
-                "status": "running",
-                "progress": 50,
-                "message": f"Retrieved {len(messages)} messages, saving to datalake...",
-            }
+        update_task(
+            task_id=task_id,
+            status="running",
+            progress=50,
+            message=f"Retrieved {len(messages)} messages, saving to datalake...",
         )
 
         # Save to datalake
         save_to_datalake(messages)
 
-        task_status[task_id].update(
-            {
-                "status": "completed",
-                "progress": 100,
-                "message": f"Successfully processed {len(messages)} messages",
-                "message_count": len(messages),
-                "completed_at": datetime.now(),
-            }
+        update_task(
+            task_id=task_id,
+            status="completed",
+            progress=100,
+            message=f"Successfully processed {len(messages)} messages",
+            message_count=len(messages),
+            completed_at=datetime.now(),
         )
 
         logger.info(f"Completed extraction task {task_id}")
@@ -117,13 +117,12 @@ async def run_extraction_task(task_id: str, request: ExtractRequest) -> None:
     except Exception as e:
         logger.error(f"Task {task_id} failed: {e}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
-        task_status[task_id].update(
-            {
-                "status": "failed",
-                "progress": 0,
-                "error": str(e),
-                "completed_at": datetime.now(),
-            }
+        update_task(
+            task_id=task_id,
+            status="failed",
+            progress=0,
+            error=str(e),
+            completed_at=datetime.now(),
         )
 
 
@@ -140,20 +139,19 @@ async def extract_messages(
     Returns:
         TaskStartResponse with task ID and status
     """
+    # Clean up old tasks before creating a new one
+    background_tasks.add_task(cleanup_old_tasks)
+
     # Generate unique task ID
     task_id = str(uuid4())
 
-    # Initialize task status
-    task_status[task_id] = {
-        "task_id": task_id,
-        "status": "started",
-        "progress": 0,
-        "message": "Task started",
-        "started_at": datetime.now(),
-        "completed_at": None,
-        "message_count": None,
-        "error": None,
-    }
+    # Create task status in database
+    create_task(
+        task_id=task_id,
+        status="started",
+        progress=0,
+        message="Task started",
+    )
 
     # Add background task
     background_tasks.add_task(run_extraction_task, task_id, request)
@@ -180,10 +178,10 @@ async def get_task_status(task_id: str) -> TaskStatusResponse:
     Raises:
         HTTPException: If task not found
     """
-    if task_id not in task_status:
+    status = get_task(task_id)
+    if not status:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    status = task_status[task_id]
     return TaskStatusResponse(**status)
 
 

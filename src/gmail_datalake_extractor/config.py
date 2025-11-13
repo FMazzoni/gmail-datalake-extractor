@@ -63,6 +63,31 @@ class ServerConfig(BaseSettings):
     )
 
 
+class TaskConfig(BaseSettings):
+    """Configuration for task status storage."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="TASK_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+        validate_assignment=True,
+        use_enum_values=True,
+    )
+
+    ttl_hours: int = Field(
+        default=800, description="Hours to keep completed/failed tasks before cleanup"
+    )
+    max_tasks: int = Field(
+        default=10000, description="Maximum number of tasks to store"
+    )
+    db_path: Path = Field(
+        default=Path("./data/tasks.duckdb"),
+        description="Path to task status database file",
+    )
+
+
 class Config:
     """Main configuration class that combines all configuration models."""
 
@@ -71,6 +96,7 @@ class Config:
         self.gmail_api = GmailApiConfig.model_validate({})
         self.database = DatabaseConfig.model_validate({})
         self.server = ServerConfig.model_validate({})
+        self.task = TaskConfig.model_validate({})
 
 
 # Global config instance
