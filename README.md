@@ -190,6 +190,43 @@ message-extract/
 └── env.template                 # Environment configuration template
 ```
 
+## Troubleshooting
+
+### Authentication Errors
+
+If you encounter an `invalid_grant` or `RefreshError` when using the Gmail API, it means your refresh token has expired or been revoked. This typically happens when:
+
+- The refresh token hasn't been used for 6+ months
+- The token was revoked in your Google Account settings
+- The OAuth client credentials changed
+
+**To fix this, re-authenticate:**
+
+1. **Using the auth helper script** (recommended):
+
+   ```bash
+   uv run gmail-auth
+   ```
+
+   The script will:
+   - Extract client credentials from your existing token (if available)
+   - Open a browser for OAuth authorization
+   - Generate and save a new token
+
+   If you have a separate `credentials.json` file from Google Cloud Console:
+
+   ```bash
+   uv run gmail-auth --credentials /path/to/credentials.json
+   ```
+
+2. **Manual re-authentication**:
+
+   - Delete or rename your current `token.json` file
+   - Re-run the OAuth flow using Google's OAuth 2.0 Playground or your own script
+   - Save the new token to the configured path
+
+The improved error messages will now provide specific guidance when authentication fails.
+
 ## Documentation
 
 - **[API Documentation](docs/API_README.md)** - Complete API reference with examples

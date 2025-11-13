@@ -12,7 +12,7 @@ services:
       SERVER_LOG_LEVEL: ${SERVER_LOG_LEVEL:-INFO}
 
       # Database configuration
-      DUCKLAKE_SETUP_PATH: ${DUCKLAKE_SETUP_PATH:-/app/data/ducklake_setup}
+      DUCKLAKE_SETUP_PATH: ${DUCKLAKE_SETUP_PATH:-/run/secrets/ducklake_setup}
 
       # Gmail API configuration
       GMAIL_API_TOKEN_PATH: ${GMAIL_API_TOKEN_PATH:-/app/data/token.json}

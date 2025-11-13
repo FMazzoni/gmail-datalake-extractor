@@ -21,6 +21,7 @@ dependencies = [
 
 [project.scripts]
 api-server = "gmail_datalake_extractor.server:main"
+gmail-auth = "gmail_datalake_extractor.auth_helper:main"
 
 [build-system]
 requires = ["hatchling"]
