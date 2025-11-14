@@ -9,9 +9,11 @@ CREATE TABLE IF NOT EXISTS metadb.messages (
     sizeEstimate INTEGER,
     raw VARCHAR
 );
-INSERT INTO
-    metadb.messages
-SELECT
-    *
-FROM
-    message_table;
+MERGE INTO metadb.messages AS target USING message_table AS source
+ON (
+    target.id = source.id
+)
+WHEN matched THEN
+UPDATE
+    WHEN NOT matched THEN
+INSERT;
