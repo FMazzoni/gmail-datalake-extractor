@@ -1,5 +1,6 @@
 """Pydantic data models for Gmail API responses."""
 
+import base64
 import json
 import tempfile
 from typing import Annotated, Literal, Self
@@ -23,6 +24,23 @@ class MessagePartBody(BaseModel):
     size: int | None = None
     data: str | None = None
 
+    def decode_data(self) -> str | None:
+        """Decode base64url-encoded body data.
+
+        Returns:
+            Decoded string or None if no data
+        """
+        if not self.data:
+            return None
+
+        # Gmail uses base64url encoding (URL-safe base64)
+        data = self.data
+        padding = 4 - len(data) % 4
+        if padding != 4:
+            data += "=" * padding
+        data = data.replace("-", "+").replace("_", "/")
+        return base64.b64decode(data).decode("utf-8", errors="ignore")
+
 
 class MessagePart(BaseModel):
     """Gmail API MessagePart model."""
@@ -33,6 +51,25 @@ class MessagePart(BaseModel):
     headers: list[Header] | None = None
     body: MessagePartBody | None = None
     parts: list["MessagePart"] | None = None
+
+    def get_html_content(self) -> str | None:
+        """Recursively extract HTML content from this part and nested parts.
+
+        Returns:
+            HTML string or None if no HTML content found
+        """
+        # Check if this part is HTML
+        if self.mimeType == "text/html" and self.body:
+            return self.body.decode_data()
+
+        # Recursively check nested parts
+        if self.parts:
+            for part in self.parts:
+                html = part.get_html_content()
+                if html:
+                    return html
+
+        return None
 
 
 def serialize_payload_to_json(value: MessagePart | dict | None) -> str | None:
@@ -112,6 +149,28 @@ class Message(BaseModel):
     payload: MessagePartJsonSerialized = None
     sizeEstimate: int | None = None
     raw: str | None = None
+
+    def get_html_body(self) -> str | None:
+        """Extract HTML content from message payload.
+
+        Returns:
+            HTML string or None if no HTML content found
+        """
+        if not self.payload:
+            return None
+
+        # Ensure payload is a MessagePart instance
+        if isinstance(self.payload, str):
+            payload = json.loads(self.payload)
+            payload = MessagePart.model_validate(payload)
+        elif isinstance(self.payload, dict):
+            payload = MessagePart.model_validate(self.payload)
+        elif isinstance(self.payload, MessagePart):
+            payload = self.payload
+        else:
+            return None
+
+        return payload.get_html_content()
 
     @classmethod
     def pyarrow_schema(cls) -> pa.Schema:
