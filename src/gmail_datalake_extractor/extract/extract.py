@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import List
 
 import duckdb
-import pyarrow as pa
 
 from gmail_datalake_extractor.auth import get_service
 from gmail_datalake_extractor.config import config
@@ -73,8 +72,7 @@ def load_sql_file(sql_file_path: Path) -> str:
 def save_to_datalake(messages: List[Message]) -> None:
     """Saves messages to DuckLake (duckdb data lake) using external SQL files."""
     # Convert messages to PyArrow table
-    message_data = [msg.model_dump() for msg in messages]
-    message_table = pa.Table.from_pylist(message_data)
+    message_table = Message.messages_to_pyarrow_table(messages)
 
     # Load SQL files
     sql_dir = Path(__file__).parent.parent / "sql"
